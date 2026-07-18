@@ -26,24 +26,28 @@ class ExtractedDecision(BaseModel):
     title: str = Field(description="Short title of the technical decision")
     summary: str = Field(description="1-2 sentence summary of what was decided and why")
     tags: List[str] = Field(default_factory=list, description="Topic tags, e.g. ['db', 'architecture']")
+    section_heading: str = Field(description="Exact markdown heading text this fact was found under")
 
 
 class ExtractedRule(BaseModel):
     rule: str = Field(description="The rule/guideline itself, as a short imperative statement")
     scope: str = Field(description="Area the rule applies to, e.g. 'ui', 'naming', 'testing'")
     notes: str = Field(default="", description="Exceptions or extra context, empty string if none")
+    section_heading: str = Field(description="Exact markdown heading text this fact was found under")
 
 
 class ExtractedWarning(BaseModel):
     area: str = Field(description="Area the warning applies to, e.g. 'auth', 'payments'")
     message: str = Field(description="The warning / sensitivity note itself")
     severity: str = Field(description="One of: low, medium, high")
+    section_heading: str = Field(description="Exact markdown heading text this fact was found under")
 
 
 class ExtractedDependency(BaseModel):
     name: str = Field(description="Name of the dependency/technology/service")
     purpose: str = Field(description="What it is used for in this project")
     category: str = Field(description="Free-form category, e.g. 'runtime', 'aws', 'frontend', 'backend'")
+    section_heading: str = Field(description="Exact markdown heading text this fact was found under")
 
 
 class SectionExtraction(BaseModel):
@@ -63,26 +67,38 @@ class SourceRef(BaseModel):
     line_range: List[int]  # [start, end], 1-indexed inclusive
 
 
-class DecisionItem(ExtractedDecision):
+class DecisionItem(BaseModel):
     id: str
+    title: str
+    summary: str
+    tags: List[str] = Field(default_factory=list)
     source: SourceRef
     observed_at: str
 
 
-class RuleItem(ExtractedRule):
+class RuleItem(BaseModel):
     id: str
+    rule: str
+    scope: str
+    notes: str = ""
     source: SourceRef
     observed_at: str
 
 
-class WarningItem(ExtractedWarning):
+class WarningItem(BaseModel):
     id: str
+    area: str
+    message: str
+    severity: str
     source: SourceRef
     observed_at: str
 
 
-class DependencyItem(ExtractedDependency):
+class DependencyItem(BaseModel):
     id: str
+    name: str
+    purpose: str
+    category: str
     source: SourceRef
     observed_at: str
 

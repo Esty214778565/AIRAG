@@ -1,6 +1,4 @@
-import os
 import gradio as gr
-from dotenv import load_dotenv
 from llama_index.core import PromptTemplate
 from llama_index.core import VectorStoreIndex
 from llama_index.core.response_synthesizers import get_response_synthesizer
@@ -15,24 +13,15 @@ from llama_index.core.workflow import (
 )
 from llama_index.embeddings.cohere import CohereEmbedding
 from llama_index.vector_stores.pinecone import PineconeVectorStore
-from netfree_unstrict_ssl import unstrict_ssl
 from pinecone import Pinecone
-from llama_index.llms.google_genai import GoogleGenAI
 
+from common import get_env_var, get_llm
+from router import RouteDecision, decide_route, synthesize_structured_answer
+from structured_store import load_store, query_items
 
-load_dotenv()
-unstrict_ssl()
-
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-COHERE_API_KEY = os.getenv("COHERE_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not PINECONE_API_KEY:
-    raise ValueError("PINECONE_API_KEY is missing from the environment")
-if not COHERE_API_KEY:
-    raise ValueError("COHERE_API_KEY is missing from the environment")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY is missing from the environment")
+PINECONE_API_KEY = get_env_var("PINECONE_API_KEY")
+COHERE_API_KEY = get_env_var("COHERE_API_KEY")
+GEMINI_API_KEY = get_env_var("GEMINI_API_KEY")
 
 
 TEXT_QA_TEMPLATE = PromptTemplate(
@@ -72,11 +61,9 @@ def load_index():
     )
 
 index = load_index()
+structured_store = load_store()
 
-llm = GoogleGenAI(
-   model="models/gemini-2.0-flash-lite",  # ניתן להחליף ל-gemini-1.5-pro לפי הצורך
-    api_key=GEMINI_API_KEY,temperature=0.1,
-)
+llm = get_llm(temperature=0.1)
 response_synthesizer = get_response_synthesizer(
     llm=llm,
     text_qa_template=TEXT_QA_TEMPLATE,
@@ -97,6 +84,15 @@ MAX_RETRIEVAL_ATTEMPTS = 2    # first attempt + one retry, then give up
 
 class QueryValidEvent(Event):
     query: str
+
+
+class SemanticRouteEvent(Event):
+    query: str
+
+
+class StructuredRouteEvent(Event):
+    query: str
+    decision: RouteDecision
 
 
 class RetrievalRequestEvent(Event):
@@ -128,7 +124,10 @@ class AnswerDraftedEvent(Event):
 
 class RagChatWorkflow(Workflow):
     """
-    validate_input -> retrieve_context -> assess_context_quality
+    validate_input -> route_query
+        -> [structured] run_structured_query -> validate_answer
+                          | (no matching items) falls back to SemanticRouteEvent
+        -> [semantic] retrieve_context -> assess_context_quality
         -> (retry retrieve_context once) | synthesize_answer -> validate_answer
     Any step can short-circuit straight to StopEvent via handle_no_context.
     """
@@ -145,8 +144,36 @@ class RagChatWorkflow(Workflow):
         return QueryValidEvent(query=query)
 
     @step
+    async def route_query(
+        self, ev: QueryValidEvent
+    ) -> SemanticRouteEvent | StructuredRouteEvent:
+        decision = await decide_route(llm, ev.query)
+        if decision.route == "structured":
+            return StructuredRouteEvent(query=ev.query, decision=decision)
+        return SemanticRouteEvent(query=ev.query)
+
+    @step
+    async def run_structured_query(
+        self, ev: StructuredRouteEvent
+    ) -> AnswerDraftedEvent | SemanticRouteEvent:
+        items = query_items(
+            structured_store,
+            ev.decision.item_types,
+            ev.decision.keywords,
+            ev.decision.date_from,
+            ev.decision.date_to,
+        )
+        if not items:
+            # Nothing matched in the structured store - fall back to semantic search
+            # rather than telling the user "no results".
+            return SemanticRouteEvent(query=ev.query)
+
+        answer = await synthesize_structured_answer(llm, ev.query, items)
+        return AnswerDraftedEvent(query=ev.query, answer=answer)
+
+    @step
     async def retrieve_context(
-        self, ctx: Context, ev: QueryValidEvent | RetrievalRequestEvent
+        self, ctx: Context, ev: SemanticRouteEvent | RetrievalRequestEvent
     ) -> ContextRetrievedEvent | NoContextEvent:
         query = ev.query
         top_k = ev.top_k if isinstance(ev, RetrievalRequestEvent) else None
