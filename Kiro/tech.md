@@ -10,7 +10,7 @@
 - **Pinia**: State management for reactive game state
 - **Vite**: Build tool and development server
 - **Vue Router**: Client-side routing
-- **Vitest**: Unit testing framework
+- **Vitest**: Unit  testing framework
 
 ## Backend (Server)
 - **Bun WebSocket Server**: Real-time bidirectional communication
