@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./.venv/Scripts/python.exe --version)",
+      "Bash(./.venv/Scripts/python.exe -c \"import llama_index.core.workflow as w; print\\('OK', w.__file__\\)\")",
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(./.venv/Scripts/python.exe -m py_compile agent.py)",
+      "Bash(./.venv/Scripts/python.exe \"C:\\\\Users\\\\user1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-user1-Desktop-AI-RAGProject\\\\edcc32ea-ef81-4880-af51-f17fa00e2894\\\\scratchpad\\\\smoke_test.py\")",
+      "Bash(uv run *)",
+      "Bash(PYTHONIOENCODING=utf-8 uv run \"C:\\\\Users\\\\user1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-user1-Desktop-AI-RAGProject\\\\bc43b8b9-a8bb-4606-8cc2-3da1b2a0c116\\\\scratchpad\\\\test_retrieval.py\")",
+      "Bash(python -c \"import sys; print\\(sys.version\\)\")",
+      "Bash(\"c:\\\\Users\\\\user1\\\\Desktop\\\\AI\\\\RAGProject\\\\.venv\\\\Scripts\\\\python.exe\" --version)",
+      "Bash(git config *)",
+      "Bash(gh auth *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
